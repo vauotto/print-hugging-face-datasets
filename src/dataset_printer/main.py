@@ -42,7 +42,7 @@ def print_config_from_args(args) -> PrintConfig:
     """Map argparse namespace to a frozen PrintConfig."""
     return PrintConfig(
         no_split_headers=args.no_split_headers,
-        explicit_field=args.field,
+        explicit_fields=args.explicit_fields,
         auto_text_field=args.auto_text_field,
         plain_text=args.plain_text,
         label_filter=args.label,

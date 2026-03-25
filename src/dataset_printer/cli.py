@@ -8,7 +8,7 @@ def build_parser():
     parser = argparse.ArgumentParser(
         description=(
             "Load a Hugging Face dataset and print rows "
-            "(full JSON per line, or a single column with --field / --auto-text-field)."
+            "(full JSON per line, or selected column(s) with --field / --auto-text-field)."
         ),
     )
     parser.add_argument(
@@ -48,14 +48,23 @@ def build_parser():
     )
     parser.add_argument(
         "--field",
+        action="append",
         default=None,
         metavar="NAME",
-        help="Print only this column (use with --plain-text for one string per line)",
+        help=(
+            "Column to print; repeat for multiple columns. Order is preserved. "
+            "With --plain-text, emits one text line per column per dataset row (row-major). "
+            "Without --plain-text, one field is a JSON value per line; two or more fields "
+            "produce one JSON object per line with those keys."
+        ),
     )
     parser.add_argument(
         "--plain-text",
         action="store_true",
-        help="Print only the extracted field value as raw text, one line per row",
+        help=(
+            "Print field values as raw text: one line per column per dataset row "
+            "(row-major when multiple --field)."
+        ),
     )
     parser.add_argument(
         "--no-split-headers",
@@ -84,6 +93,7 @@ def parse_args(argv=None):
     """Parse argv and apply cross-flag validation."""
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.plain_text and args.field is None and not args.auto_text_field:
+    args.explicit_fields = tuple(args.field) if args.field else None
+    if args.plain_text and args.explicit_fields is None and not args.auto_text_field:
         parser.error("--plain-text requires --field or --auto-text-field")
     return args

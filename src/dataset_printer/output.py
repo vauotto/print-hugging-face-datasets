@@ -13,7 +13,7 @@ class PrintConfig:
     """Options controlling how each row is filtered and serialized to stdout."""
 
     no_split_headers: bool
-    explicit_field: str | None
+    explicit_fields: tuple[str, ...] | None
     auto_text_field: bool
     plain_text: bool
     label_filter: int | None
@@ -25,11 +25,17 @@ class AutoTextFieldResolver:
     def __init__(self):
         self._column: str | None = None
 
-    def column_for_row(self, row, explicit_field: str | None, use_auto: bool) -> str | None:
-        """Return the field name to print for this row, or None for full-row JSON."""
-        if explicit_field is not None:
-            self._require_key(row, explicit_field, context="column")
-            return explicit_field
+    def fields_for_row(
+        self,
+        row,
+        explicit_fields: tuple[str, ...] | None,
+        use_auto: bool,
+    ) -> tuple[str, ...] | None:
+        """Return column names to print for this row, or None for full-row JSON."""
+        if explicit_fields is not None:
+            for name in explicit_fields:
+                self._require_key(row, name, context="column")
+            return explicit_fields
         if use_auto:
             if self._column is None:
                 self._column = pick_auto_text_field(row)
@@ -38,7 +44,7 @@ class AutoTextFieldResolver:
                         "--auto-text-field found no suitable string column"
                     )
             self._require_key(row, self._column, context="auto-resolved column")
-            return self._column
+            return (self._column,)
         return None
 
     def _require_key(self, row, key: str, context: str) -> None:
@@ -73,17 +79,23 @@ def row_matches_label_filter(row, label_filter: int | None) -> bool:
         return value == label_filter
 
 
-def write_row_line(row, field_name: str | None, plain_text: bool) -> None:
-    """Print one row: full JSON, JSON value of one field, or plain text for one field."""
-    if field_name is None:
+def write_row_output(row, field_names: tuple[str, ...] | None, plain_text: bool) -> None:
+    """Print one dataset row: full JSON, subset JSON, or plain lines per field."""
+    if field_names is None:
         print(json.dumps(row, ensure_ascii=False, default=str), flush=True)
         return
-    value = row[field_name]
     if plain_text:
-        line = value if isinstance(value, str) else str(value)
-        print(line, flush=True)
-    else:
+        for name in field_names:
+            value = row[name]
+            line = value if isinstance(value, str) else str(value)
+            print(line, flush=True)
+        return
+    if len(field_names) == 1:
+        value = row[field_names[0]]
         print(json.dumps(value, ensure_ascii=False, default=str), flush=True)
+        return
+    subset = {k: row[k] for k in field_names}
+    print(json.dumps(subset, ensure_ascii=False, default=str), flush=True)
 
 
 def write_split_header(split_name: str) -> None:
@@ -105,10 +117,10 @@ def print_split_rows(
     for row in rows:
         if not row_matches_label_filter(row, config.label_filter):
             continue
-        field_name = resolver.column_for_row(
-            row, config.explicit_field, config.auto_text_field
+        field_names = resolver.fields_for_row(
+            row, config.explicit_fields, config.auto_text_field
         )
-        write_row_line(row, field_name, config.plain_text)
+        write_row_output(row, field_names, config.plain_text)
         printed += 1
         if max_rows is not None and printed >= max_rows:
             break

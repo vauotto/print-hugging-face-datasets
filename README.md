@@ -1,6 +1,6 @@
 # Dataset Printer
 
-Small command-line utility that loads a dataset from the [Hugging Face Hub](https://huggingface.co/datasets) using the `datasets` library and prints each row to **standard output**. By default it prints one JSON object per line; you can restrict output to a single text column (for example to export prompt-injection phrases) and optionally filter by label.
+Small command-line utility that loads a dataset from the [Hugging Face Hub](https://huggingface.co/datasets) using the `datasets` library and prints each row to **standard output**. By default it prints one JSON object per line; you can select one or more columns with repeated `--field`, export plain text (one line per column per dataset row when multiple fields are selected), and optionally filter by label.
 
 Application code lives under [`src/dataset_printer/`](src/dataset_printer/). The [`print_dataset.py`](print_dataset.py) file at the repository root prepends `src` to `sys.path` and delegates to that package so you can keep running commands from the project root without installing the project.
 
@@ -58,6 +58,8 @@ PYTHONPATH=src python -m dataset_printer [DATASET] [OPTIONS]
 python print_dataset.py
 python print_dataset.py yanismiraoui/prompt_injections --split train
 python print_dataset.py deepset/prompt-injections --field text --plain-text --no-split-headers > lines.txt
+python print_dataset.py deepset/prompt-injections --field text --field label --plain-text --no-split-headers --max-rows 2
+python print_dataset.py deepset/prompt-injections --field text --field label --no-split-headers --max-rows 2
 python print_dataset.py deepset/prompt-injections --field text --label 1 --plain-text --no-split-headers
 python print_dataset.py some/user/dataset --auto-text-field --plain-text --max-rows 10
 python print_dataset.py some/user/dataset --streaming --split train
@@ -72,9 +74,9 @@ python print_dataset.py some/user/dataset --streaming --split train
 | `--split SPLIT` | Load and print only this split (e.g. `train`). If omitted, all splits are printed with a header per split. |
 | `--streaming` | Stream rows instead of loading the full split into memory. |
 | `--trust-remote-code` | Allow the Hub to run dataset loading scripts from the repo (use only when you trust the source). |
-| `--max-rows N` | Print at most `N` rows **per split** (useful for smoke tests). |
-| `--field NAME` | Print only the column `NAME`. Without `--plain-text`, the value is JSON-encoded per line. |
-| `--plain-text` | Print only the raw text of the selected column, one line per row. Requires `--field` or `--auto-text-field`. |
+| `--max-rows N` | Print at most `N` **dataset rows** per split after `--label` filtering (not counting extra lines when `--plain-text` prints multiple columns per row). |
+| `--field NAME` | Select a column to print; pass the flag multiple times for multiple columns. Order is preserved. With `--plain-text`, prints one text line per column **per dataset row** (row-major: col₁, col₂, …, then next row). Without `--plain-text`: a single field yields one JSON-encoded **value** per line; two or more fields yield one JSON **object** per line containing only those keys. |
+| `--plain-text` | Print selected field values as raw text. Requires `--field` or `--auto-text-field`. |
 | `--no-split-headers` | Do not print `=== split: ... ===` lines (better for piping). |
 | `--auto-text-field` | Guess a string column using a built-in preference list and fallbacks; can be wrong on ambiguous schemas. |
 | `--label N` | Keep only rows whose `label` column equals integer `N`. |
